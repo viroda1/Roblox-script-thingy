@@ -1,7 +1,8 @@
 --[[
-    Viro Hub – The Strongest Battlegrounds
-    Mobile-friendly version with floating V button and all original features
-    – Tap V button (or press K on keyboard) to open/close menu
+    Viro Hub – The Strongest Battlegrounds (Ultimate Edition)
+    – Cosmic terminal style (black + white outline, 5 stars with lines)
+    – Full PC & mobile compatibility
+    – Features: Auto Punch, Auto Dodge, Aimbot, WalkSpeed, JumpPower, Noclip, Fly, Fling, Anti-Fling, Teleports, Spawn Kill, ESP, No Fog, Full Bright, Infinite Yield, Rejoin, Reset
 ]]
 
 -- Services
@@ -11,20 +12,88 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-local VirtualInput = pcall(game.GetService, game, "VirtualInputManager") and game:GetService("VirtualInputManager") or nil
+local VirtualInput = pcall(function() return game:GetService("VirtualInputManager") end) and game:GetService("VirtualInputManager") or nil
 
--- ==================== UI PARENT (MOBILE SAFE) ====================
+-- UI Parent (safe for both PC and mobile)
 local guiParent = game.CoreGui
-if not guiParent then
-    guiParent = LocalPlayer:WaitForChild("PlayerGui")
+if not guiParent then guiParent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ViroHubUltimate"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = guiParent
+
+-- ==================== COSMIC BACKGROUND (5 STARS + LINES) ====================
+local cosmicCanvas = Instance.new("Frame")
+cosmicCanvas.Size = UDim2.new(1, 0, 1, 0)
+cosmicCanvas.BackgroundTransparency = 1
+cosmicCanvas.ZIndex = 0
+cosmicCanvas.Parent = screenGui
+
+-- 5 stars only
+local starPositions = {}
+local lines = {}
+local starCount = 5
+
+-- Generate 5 fixed star positions (so they don't move)
+for i = 1, starCount do
+    starPositions[i] = {
+        x = math.random(5, 95) / 100,  -- percentage of screen width
+        y = math.random(5, 95) / 100,  -- percentage of screen height
+        size = math.random(3, 5),
+        alpha = math.random(40, 80) / 100
+    }
 end
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ViroHub"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = guiParent
+-- Function to draw stars and lines (called on resize)
+local function drawCosmic()
+    -- Clear previous
+    for _, line in ipairs(lines) do line:Destroy() end
+    lines = {}
+    for _, child in ipairs(cosmicCanvas:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
 
--- ==================== FLOATING TOGGLE BUTTON (for mobile) ====================
+    local screenSize = Vector2.new(cosmicCanvas.AbsoluteSize.X, cosmicCanvas.AbsoluteSize.Y)
+    if screenSize.X == 0 then return end
+
+    -- Store actual pixel positions
+    local starPixels = {}
+    for i, pos in ipairs(starPositions) do
+        starPixels[i] = Vector2.new(screenSize.X * pos.x, screenSize.Y * pos.y)
+        local star = Instance.new("Frame")
+        star.Size = UDim2.new(0, pos.size, 0, pos.size)
+        star.Position = UDim2.new(0, starPixels[i].X - pos.size/2, 0, starPixels[i].Y - pos.size/2)
+        star.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+        star.BorderSizePixel = 0
+        star.BackgroundTransparency = 1 - pos.alpha
+        star.Parent = cosmicCanvas
+    end
+
+    -- Draw lines between close stars
+    for i = 1, starCount do
+        for j = i + 1, starCount do
+            local dist = (starPixels[i] - starPixels[j]).Magnitude
+            if dist < 250 then
+                local line = Instance.new("Frame")
+                line.Size = UDim2.new(0, dist, 0, 1)
+                line.Position = UDim2.new(0, starPixels[i].X, 0, starPixels[i].Y)
+                line.Rotation = math.deg(math.atan2(starPixels[j].Y - starPixels[i].Y, starPixels[j].X - starPixels[i].X))
+                line.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+                line.BackgroundTransparency = 0.4
+                line.BorderSizePixel = 0
+                line.Parent = cosmicCanvas
+                table.insert(lines, line)
+            end
+        end
+    end
+end
+
+-- Draw on resize and initial
+UserInputService.WindowSizeChanged:Connect(drawCosmic)
+drawCosmic()
+
+-- ==================== UI ELEMENTS ====================
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(0, 60, 0, 60)
 toggleButton.Position = UDim2.new(1, -70, 0, 10)
@@ -34,91 +103,79 @@ toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 toggleButton.Font = Enum.Font.GothamBold
 toggleButton.TextSize = 28
 toggleButton.BorderSizePixel = 0
-toggleButton.Parent = ScreenGui
+toggleButton.Parent = screenGui
 
--- ==================== MAIN MENU ====================
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 500, 0, 600)
-MainFrame.Position = UDim2.new(0.5, -250, 0.5, -300)
-MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
-MainFrame.BackgroundTransparency = 0.05
-MainFrame.BorderSizePixel = 0
-MainFrame.ClipsDescendants = true
-MainFrame.Visible = false  -- start hidden
-MainFrame.Parent = ScreenGui
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 520, 0, 620)
+mainFrame.Position = UDim2.new(0.5, -260, 0.5, -310)
+mainFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 16)
+mainFrame.BackgroundTransparency = 0.08
+mainFrame.BorderSizePixel = 2
+mainFrame.BorderColor3 = Color3.fromRGB(255, 215, 0)
+mainFrame.ClipsDescendants = true
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
 
--- Add gradient (optional)
-local gradient = Instance.new("UIGradient")
-gradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 30)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 15))
-})
-gradient.Parent = MainFrame
+-- Title bar
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 44)
+titleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
 
--- Title bar (draggable)
-local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1, 0, 0, 40)
-TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
-TitleBar.BorderSizePixel = 0
-TitleBar.Parent = MainFrame
+local titleText = Instance.new("TextLabel")
+titleText.Size = UDim2.new(1, -50, 1, 0)
+titleText.Position = UDim2.new(0, 12, 0, 0)
+titleText.BackgroundTransparency = 1
+titleText.Text = "VIRO HUB – ULTIMATE"
+titleText.TextColor3 = Color3.fromRGB(255, 215, 0)
+titleText.Font = Enum.Font.GothamBold
+titleText.TextSize = 18
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Parent = titleBar
 
-local TitleText = Instance.new("TextLabel")
-TitleText.Size = UDim2.new(1, -40, 1, 0)
-TitleText.Position = UDim2.new(0, 10, 0, 0)
-TitleText.BackgroundTransparency = 1
-TitleText.Text = "VIRO HUB – COSMIC TERMINAL"
-TitleText.TextColor3 = Color3.fromRGB(255, 215, 0)
-TitleText.TextXAlignment = Enum.TextXAlignment.Left
-TitleText.Font = Enum.Font.GothamBold
-TitleText.TextSize = 16
-TitleText.Parent = TitleBar
-
-local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.new(0, 30, 0, 30)
-CloseButton.Position = UDim2.new(1, -35, 0, 5)
-CloseButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-CloseButton.Text = "✕"
-CloseButton.TextColor3 = Color3.new(1,1,1)
-CloseButton.Font = Enum.Font.GothamBold
-CloseButton.TextSize = 18
-CloseButton.Parent = TitleBar
-CloseButton.MouseButton1Click:Connect(function()
-    ScreenGui.Enabled = false
-end)
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 34, 0, 34)
+closeBtn.Position = UDim2.new(1, -40, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.new(1,1,1)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 18
+closeBtn.Parent = titleBar
+closeBtn.MouseButton1Click:Connect(function() screenGui.Enabled = false end)
 
 -- Tab container
 local TabContainer = Instance.new("Frame")
-TabContainer.Size = UDim2.new(1, 0, 0, 40)
-TabContainer.Position = UDim2.new(0, 0, 0, 40)
+TabContainer.Size = UDim2.new(1, 0, 0, 44)
+TabContainer.Position = UDim2.new(0, 0, 0, 44)
 TabContainer.BackgroundTransparency = 1
-TabContainer.Parent = MainFrame
+TabContainer.Parent = mainFrame
 
 -- Content container
 local ContentContainer = Instance.new("Frame")
-ContentContainer.Size = UDim2.new(1, -20, 1, -90)
-ContentContainer.Position = UDim2.new(0, 10, 0, 85)
+ContentContainer.Size = UDim2.new(1, -16, 1, -100)
+ContentContainer.Position = UDim2.new(0, 8, 0, 94)
 ContentContainer.BackgroundTransparency = 1
-ContentContainer.Parent = MainFrame
+ContentContainer.Parent = mainFrame
 
--- Tabs table
+-- Tabs
 local tabs = {}
 local currentTab = nil
 
 local function createTab(name)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 100, 1, 0)
-    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    btn.Size = UDim2.new(0, 104, 1, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 55)
     btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+    btn.TextColor3 = Color3.fromRGB(200,200,220)
     btn.Font = Enum.Font.Gotham
     btn.TextSize = 14
-    btn.BorderSizePixel = 0
     btn.Parent = TabContainer
     btn.MouseButton1Click:Connect(function()
         for _, tab in pairs(tabs) do
-            tab.btn.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-            tab.btn.TextColor3 = Color3.fromRGB(200,200,200)
+            tab.btn.BackgroundColor3 = Color3.fromRGB(35, 35, 55)
+            tab.btn.TextColor3 = Color3.fromRGB(200,200,220)
             tab.content.Visible = false
         end
         btn.BackgroundColor3 = Color3.fromRGB(128, 0, 255)
@@ -128,131 +185,118 @@ local function createTab(name)
     end)
 
     local content = Instance.new("ScrollingFrame")
-    content.Size = UDim2.new(1, 0, 1, 0)
+    content.Size = UDim2.new(1,0,1,0)
     content.BackgroundTransparency = 1
-    content.BorderSizePixel = 0
-    content.CanvasSize = UDim2.new(0, 0, 0, 0)
     content.ScrollBarThickness = 6
     content.Parent = ContentContainer
     content.Visible = false
-
     tabs[name] = { btn = btn, content = content }
 end
 
--- Helper UI functions
+-- UI Helpers
 local function addSection(tabName, title)
-    local frame = tabs[tabName].content
-    local section = Instance.new("Frame")
-    section.Size = UDim2.new(1, -10, 0, 40)
-    section.BackgroundColor3 = Color3.fromRGB(20,20,35)
-    section.BorderSizePixel = 0
-    section.Parent = frame
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -10, 1, 0)
-    label.Position = UDim2.new(0, 5, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = title
-    label.TextColor3 = Color3.fromRGB(255,215,0)
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 14
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = section
-    return section
+    local sec = Instance.new("TextLabel")
+    sec.Size = UDim2.new(1, -8, 0, 32)
+    sec.BackgroundColor3 = Color3.fromRGB(28, 28, 48)
+    sec.Text = title
+    sec.TextColor3 = Color3.fromRGB(255, 215, 0)
+    sec.Font = Enum.Font.GothamBold
+    sec.TextSize = 14
+    sec.TextXAlignment = Enum.TextXAlignment.Left
+    sec.Parent = tabs[tabName].content
+    return sec
 end
 
-local function addToggle(tabName, section, name, flag, callback, defaultValue)
-    local frame = tabs[tabName].content
+local function addToggle(tabName, labelText, callback, defaultState)
+    local scroll = tabs[tabName].content
     local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, -10, 0, 40) -- slightly taller for touch
-    row.BackgroundColor3 = Color3.fromRGB(15,15,25)
-    row.BorderSizePixel = 0
-    row.Parent = frame
+    row.Size = UDim2.new(1, -8, 0, 40)
+    row.BackgroundColor3 = Color3.fromRGB(22, 22, 38)
+    row.Parent = scroll
 
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.65, -10, 1, 0)
+    label.Size = UDim2.new(0.7, -10, 1, 0)
     label.Position = UDim2.new(0, 5, 0, 0)
     label.BackgroundTransparency = 1
-    label.Text = name
-    label.TextColor3 = Color3.fromRGB(220,220,220)
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(235, 235, 245)
     label.Font = Enum.Font.Gotham
     label.TextSize = 13
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = row
 
     local toggle = Instance.new("TextButton")
-    toggle.Size = UDim2.new(0, 70, 0, 30)
-    toggle.Position = UDim2.new(1, -75, 0, 5)
-    toggle.BackgroundColor3 = Color3.fromRGB(50,50,70)
+    toggle.Size = UDim2.new(0, 76, 0, 30)
+    toggle.Position = UDim2.new(1, -82, 0, 5)
+    toggle.BackgroundColor3 = Color3.fromRGB(55, 55, 75)
     toggle.Text = "OFF"
-    toggle.TextColor3 = Color3.fromRGB(200,200,200)
+    toggle.TextColor3 = Color3.fromRGB(200,200,220)
     toggle.Font = Enum.Font.Gotham
     toggle.TextSize = 12
     toggle.Parent = row
 
-    local enabled = defaultValue or false
-    local function updateUI()
+    local enabled = defaultState or false
+    local function update()
         if enabled then
-            toggle.BackgroundColor3 = Color3.fromRGB(128,0,255)
+            toggle.BackgroundColor3 = Color3.fromRGB(128, 0, 255)
             toggle.Text = "ON"
             toggle.TextColor3 = Color3.fromRGB(255,255,255)
         else
-            toggle.BackgroundColor3 = Color3.fromRGB(50,50,70)
+            toggle.BackgroundColor3 = Color3.fromRGB(55, 55, 75)
             toggle.Text = "OFF"
-            toggle.TextColor3 = Color3.fromRGB(200,200,200)
+            toggle.TextColor3 = Color3.fromRGB(200,200,220)
         end
     end
-    updateUI()
+    update()
 
     toggle.MouseButton1Click:Connect(function()
         enabled = not enabled
-        updateUI()
+        update()
         if callback then callback(enabled) end
     end)
-
     return row
 end
 
-local function addSlider(tabName, section, name, min, max, step, suffix, flag, callback, defaultValue)
-    local frame = tabs[tabName].content
+local function addSlider(tabName, labelText, minVal, maxVal, step, suffix, callback, defaultValue)
+    local scroll = tabs[tabName].content
     local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, -10, 0, 65)
-    row.BackgroundColor3 = Color3.fromRGB(15,15,25)
-    row.BorderSizePixel = 0
-    row.Parent = frame
+    row.Size = UDim2.new(1, -8, 0, 62)
+    row.BackgroundColor3 = Color3.fromRGB(22, 22, 38)
+    row.Parent = scroll
 
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -10, 0, 20)
     label.Position = UDim2.new(0, 5, 0, 0)
     label.BackgroundTransparency = 1
-    label.Text = name
-    label.TextColor3 = Color3.fromRGB(220,220,220)
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(235, 235, 245)
     label.Font = Enum.Font.Gotham
     label.TextSize = 13
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.Parent = row
 
     local valueLabel = Instance.new("TextLabel")
-    valueLabel.Size = UDim2.new(0, 60, 0, 20)
-    valueLabel.Position = UDim2.new(1, -65, 0, 0)
+    valueLabel.Size = UDim2.new(0, 70, 0, 20)
+    valueLabel.Position = UDim2.new(1, -75, 0, 0)
     valueLabel.BackgroundTransparency = 1
     valueLabel.Text = tostring(defaultValue) .. suffix
-    valueLabel.TextColor3 = Color3.fromRGB(255,215,0)
+    valueLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
     valueLabel.Font = Enum.Font.Gotham
     valueLabel.TextSize = 12
     valueLabel.TextXAlignment = Enum.TextXAlignment.Right
     valueLabel.Parent = row
 
     local slider = Instance.new("TextButton")
-    slider.Size = UDim2.new(1, -10, 0, 25)
-    slider.Position = UDim2.new(0, 5, 0, 25)
-    slider.BackgroundColor3 = Color3.fromRGB(30,30,50)
+    slider.Size = UDim2.new(1, -10, 0, 26)
+    slider.Position = UDim2.new(0, 5, 0, 26)
+    slider.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
     slider.AutoButtonColor = false
     slider.Text = ""
     slider.Parent = row
 
     local fill = Instance.new("Frame")
-    fill.Size = UDim2.new((defaultValue - min)/(max - min), 0, 1, 0)
-    fill.BackgroundColor3 = Color3.fromRGB(128,0,255)
+    fill.Size = UDim2.new((defaultValue - minVal)/(maxVal - minVal), 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(128, 0, 255)
     fill.BorderSizePixel = 0
     fill.Parent = slider
 
@@ -263,320 +307,258 @@ local function addSlider(tabName, section, name, min, max, step, suffix, flag, c
             dragging = true
         end
     end)
-    slider.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
+    slider.InputEnded:Connect(function() dragging = false end)
     slider.MouseMoved:Connect(function()
         if dragging then
             local mousePos = UserInputService:GetMouseLocation()
             local sliderPos = slider.AbsolutePosition
             local localX = mousePos.X - sliderPos.X
             local percent = math.clamp(localX / slider.AbsoluteSize.X, 0, 1)
-            value = min + (max - min) * percent
+            value = minVal + (maxVal - minVal) * percent
             value = math.floor(value / step + 0.5) * step
-            value = math.clamp(value, min, max)
-            fill.Size = UDim2.new((value - min)/(max - min), 0, 1, 0)
+            value = math.clamp(value, minVal, maxVal)
+            fill.Size = UDim2.new((value - minVal)/(maxVal - minVal), 0, 1, 0)
             valueLabel.Text = tostring(value) .. suffix
             if callback then callback(value) end
         end
+    end)
+    return row
+end
+
+local function addButton(tabName, text, callback)
+    local scroll = tabs[tabName].content
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -8, 0, 40)
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(235, 235, 245)
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 13
+    btn.Parent = scroll
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+local function addPlayerDropdown(tabName, labelText, callback)
+    local scroll = tabs[tabName].content
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, -8, 0, 44)
+    row.BackgroundColor3 = Color3.fromRGB(22, 22, 38)
+    row.Parent = scroll
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.5, -10, 1, 0)
+    label.Position = UDim2.new(0, 5, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = labelText
+    label.TextColor3 = Color3.fromRGB(235, 235, 245)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = row
+
+    local dropdown = Instance.new("TextButton")
+    dropdown.Size = UDim2.new(0, 140, 0, 32)
+    dropdown.Position = UDim2.new(1, -145, 0, 6)
+    dropdown.BackgroundColor3 = Color3.fromRGB(55, 55, 75)
+    dropdown.Text = "Select Player"
+    dropdown.TextColor3 = Color3.fromRGB(200,200,220)
+    dropdown.Font = Enum.Font.Gotham
+    dropdown.TextSize = 12
+    dropdown.Parent = row
+
+    local selectedPlayer = nil
+    dropdown.MouseButton1Click:Connect(function()
+        local players = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                table.insert(players, p.Name)
+            end
+        end
+        -- Simple selection via input (for mobile, we'll use a textbox approach)
+        local input = Instance.new("TextBox")
+        input.Size = UDim2.new(0, 200, 0, 30)
+        input.PlaceholderText = "Enter player name"
+        input.Parent = row
+        input:CaptureFocus()
+        input.FocusLost:Connect(function()
+            local target = Players:FindFirstChild(input.Text)
+            if target then
+                selectedPlayer = target
+                dropdown.Text = target.Name
+                if callback then callback(selectedPlayer) end
+            end
+            input:Destroy()
+        end)
     end)
 
     return row
 end
 
-local function addButton(tabName, name, callback)
-    local frame = tabs[tabName].content
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 40)
-    btn.Position = UDim2.new(0, 5, 0, 0)
-    btn.BackgroundColor3 = Color3.fromRGB(30,30,50)
-    btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(220,220,220)
-    btn.Font = Enum.Font.Gotham
-    btn.TextSize = 13
-    btn.Parent = frame
-    btn.MouseButton1Click:Connect(callback)
-    return btn
-end
-
-function layoutTab(tabName)
+local function layoutTab(tabName)
     local frame = tabs[tabName].content
     local y = 0
     for _, child in ipairs(frame:GetChildren()) do
-        if child:IsA("Frame") or child:IsA("TextButton") then
+        if child:IsA("Frame") or child:IsA("TextButton") or child:IsA("TextLabel") then
             child.Position = UDim2.new(0, 5, 0, y)
             y = y + child.Size.Y.Offset + 5
         end
     end
-    frame.CanvasSize = UDim2.new(0, 0, 0, y + 10)
+    frame.CanvasSize = UDim2.new(0, 0, 0, y + 12)
 end
 
 -- Create tabs
 createTab("Combat")
 createTab("Movement")
+createTab("Fling")
+createTab("Teleports")
 createTab("Visuals")
 createTab("Misc")
-createTab("Credits")
 
--- ==================== FEATURE IMPLEMENTATIONS (from original script) ====================
+-- ==================== FEATURE IMPLEMENTATIONS ====================
 
--- Combat tab
-local combatSec = addSection("Combat", "Combat Features")
-
--- Auto Punch
-local autoPunch = false
-local punchCooldown = false
-local function autoPunchLoop()
-    while autoPunch do
-        if not punchCooldown then
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
-                local nearest = nil
-                local nearestDist = 10
-                for _, player in ipairs(Players:GetPlayers()) do
-                    if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                        local dist = (char.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                        if dist < nearestDist then
-                            nearestDist = dist
-                            nearest = player.Character
-                        end
-                    end
-                end
-                if nearest and nearestDist < 8 then
-                    if VirtualInput then
-                        VirtualInput:SendKeyEvent(true, Enum.KeyCode.Q, false, game)
-                        task.wait(0.1)
-                        VirtualInput:SendKeyEvent(false, Enum.KeyCode.Q, false, game)
-                    end
-                    punchCooldown = true
-                    task.wait(0.5)
-                    punchCooldown = false
-                end
-            end
-        end
-        task.wait()
-    end
-end
-addToggle("Combat", combatSec, "Auto Punch", "AutoPunch", function(val)
-    autoPunch = val
-    if val then coroutine.wrap(autoPunchLoop)() end
-end, false)
-
--- Aimbot
-local aimbotEnabled = false
-local aimbotPart = "Head"
-local aimbotConnection
-addToggle("Combat", combatSec, "Aimbot", "Aimbot", function(val)
-    aimbotEnabled = val
-end, false)
-
--- Dropdown for aimbot part
-local partRow = Instance.new("Frame")
-partRow.Size = UDim2.new(1, -10, 0, 35)
-partRow.BackgroundColor3 = Color3.fromRGB(15,15,25)
-partRow.Parent = tabs["Combat"].content
-local partLabel = Instance.new("TextLabel")
-partLabel.Size = UDim2.new(0.5, -10, 1, 0)
-partLabel.Position = UDim2.new(0, 5, 0, 0)
-partLabel.BackgroundTransparency = 1
-partLabel.Text = "Aimbot Target:"
-partLabel.TextColor3 = Color3.fromRGB(220,220,220)
-partLabel.Font = Enum.Font.Gotham
-partLabel.TextSize = 13
-partLabel.TextXAlignment = Enum.TextXAlignment.Left
-partLabel.Parent = partRow
-local partBtn = Instance.new("TextButton")
-partBtn.Size = UDim2.new(0, 80, 0, 25)
-partBtn.Position = UDim2.new(1, -85, 0, 5)
-partBtn.BackgroundColor3 = Color3.fromRGB(50,50,70)
-partBtn.Text = "Head"
-partBtn.TextColor3 = Color3.fromRGB(200,200,200)
-partBtn.Font = Enum.Font.Gotham
-partBtn.TextSize = 12
-partBtn.Parent = partRow
-partBtn.MouseButton1Click:Connect(function()
-    if aimbotPart == "Head" then
-        aimbotPart = "HumanoidRootPart"
-        partBtn.Text = "Torso"
-    else
-        aimbotPart = "Head"
-        partBtn.Text = "Head"
-    end
-end)
-
-aimbotConnection = RunService.RenderStepped:Connect(function()
-    if not aimbotEnabled then return end
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    local targetPart = nil
-    local nearestDist = math.huge
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local part = player.Character:FindFirstChild(aimbotPart)
-            if part then
-                local dist = (char.HumanoidRootPart.Position - part.Position).Magnitude
-                if dist < nearestDist then
-                    nearestDist = dist
-                    targetPart = part
-                end
-            end
-        end
-    end
-    if targetPart then
-        local targetPos = targetPart.Position
-        local delta = (targetPos - Camera.CFrame.Position).Unit
-        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, Camera.CFrame.Position + delta)
-    end
-end)
-
--- Auto Dodge placeholder
-addToggle("Combat", combatSec, "Auto Dodge (F key)", "AutoDodge", function(val)
-    if val then
-        -- optional: implement F key spam if needed
-    end
-end, false)
-
-layoutTab("Combat")
-
--- Movement tab
-local moveSec = addSection("Movement", "Movement")
+-- Helper functions
 local function setCharProp(prop, val)
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChild("Humanoid")
     if hum then hum[prop] = val end
 end
-addSlider("Movement", moveSec, "WalkSpeed", 16, 250, 1, "", "WalkSpeed", function(v) setCharProp("WalkSpeed", v) end, 16)
-addSlider("Movement", moveSec, "JumpPower", 50, 350, 5, "", "JumpPower", function(v) setCharProp("JumpPower", v) end, 50)
 
--- Noclip
-local noclipEnabled = false
-local noclipConnection
-addToggle("Movement", moveSec, "Noclip", "Noclip", function(val)
-    noclipEnabled = val
-    if noclipConnection then noclipConnection:Disconnect() end
-    if val then
-        noclipConnection = RunService.Stepped:Connect(function()
-            if not noclipEnabled then return end
+-- ENFORCED MOVEMENT (fixes TSB resetting)
+local currentWalkSpeed = 16
+local currentJumpPower = 50
+local walkSpeedEnabled = false
+local jumpPowerEnabled = false
+
+coroutine.wrap(function()
+    while true do
+        wait(0.5)
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChild("Humanoid")
+        if hum then
+            if walkSpeedEnabled and hum.WalkSpeed ~= currentWalkSpeed then
+                hum.WalkSpeed = currentWalkSpeed
+            end
+            if jumpPowerEnabled and hum.JumpPower ~= currentJumpPower then
+                hum.JumpPower = currentJumpPower
+            end
+        end
+    end
+end)()
+
+-- AUTO PUNCH / DODGE
+local autoPunch = false
+local autoDodge = false
+local punchCd = false
+local dodgeCd = false
+
+coroutine.wrap(function()
+    while true do
+        if autoPunch or autoDodge then
             local char = LocalPlayer.Character
-            if char then
-                for _, part in ipairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
+            if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+                local nearest, nearestDist = nil, 15
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                        local dist = (char.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                        if dist < nearestDist then
+                            nearestDist = dist
+                            nearest = p.Character
+                        end
+                    end
+                end
+                if nearest then
+                    if autoPunch and not punchCd and nearestDist < 8 then
+                        if VirtualInput then
+                            VirtualInput:SendKeyEvent(true, Enum.KeyCode.Q, false, game)
+                            wait(0.1)
+                            VirtualInput:SendKeyEvent(false, Enum.KeyCode.Q, false, game)
+                        end
+                        punchCd = true
+                        wait(0.5)
+                        punchCd = false
+                    end
+                    if autoDodge and not dodgeCd and nearestDist < 10 then
+                        if VirtualInput then
+                            VirtualInput:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+                            wait(0.1)
+                            VirtualInput:SendKeyEvent(false, Enum.KeyCode.F, false, game)
+                        end
+                        dodgeCd = true
+                        wait(0.8)
+                        dodgeCd = false
                     end
                 end
             end
-        end)
+        end
+        wait()
     end
-end, false)
-layoutTab("Movement")
+end)()
 
--- Visuals tab
-local visSec = addSection("Visuals", "Cosmic Terminal")
+-- AIMBOT
+local aimbotEnabled = false
+local aimbotPart = "Head"
+local aimbotSmoothness = 0.4
+local aimbotFOV = 180
 
--- Constellation background (must be defined before toggles)
-local constellationCanvas = Instance.new("Frame")
-constellationCanvas.Size = UDim2.new(1, 0, 1, 0)
-constellationCanvas.BackgroundTransparency = 1
-constellationCanvas.ZIndex = 0
-constellationCanvas.Parent = ScreenGui
-
-local stars = {}
-local lines = {}
-local constellationActive = true
-local themeColor = Color3.fromRGB(255, 255, 255)
-
-local function generateStars()
-    for i = 1, 100 do
-        local star = Instance.new("Frame")
-        star.Size = UDim2.new(0, 2, 0, 2)
-        star.Position = UDim2.new(math.random(), 0, math.random(), 0)
-        star.BackgroundColor3 = themeColor
-        star.BorderSizePixel = 0
-        star.BackgroundTransparency = math.random(30, 80) / 100
-        star.Parent = constellationCanvas
-        table.insert(stars, star)
-    end
-end
-
-local function drawLines()
-    for _, line in ipairs(lines) do line:Destroy() end
-    lines = {}
-    if not constellationActive then return end
-    for i = 1, #stars do
-        for j = i+1, #stars do
-            local posA = stars[i].AbsolutePosition
-            local posB = stars[j].AbsolutePosition
-            local dx, dy = posA.X - posB.X, posA.Y - posB.Y
-            local dist = math.sqrt(dx*dx + dy*dy)
-            if dist < 150 then
-                local line = Instance.new("Frame")
-                line.Size = UDim2.new(0, dist, 0, 1)
-                line.Position = UDim2.new(0, posA.X, 0, posA.Y)
-                line.Rotation = math.deg(math.atan2(dy, dx))
-                line.BackgroundColor3 = themeColor
-                line.BackgroundTransparency = 0.5
-                line.BorderSizePixel = 0
-                line.Parent = constellationCanvas
-                table.insert(lines, line)
+RunService.RenderStepped:Connect(function()
+    if not aimbotEnabled then return end
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local targetPart = nil
+    local nearestAngle = aimbotFOV
+    local camCF = Camera.CFrame
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local part = p.Character:FindFirstChild(aimbotPart)
+            if part then
+                local screenPos, onScreen = camCF:WorldToScreenPoint(part.Position)
+                if onScreen then
+                    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+                    local angle = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                    if angle < nearestAngle then
+                        nearestAngle = angle
+                        targetPart = part
+                    end
+                end
             end
         end
     end
-end
-
-generateStars()
-drawLines()
-UserInputService.WindowSizeChanged:Connect(drawLines)
-
-local function setConstellationActive(active)
-    constellationActive = active
-    constellationCanvas.Visible = active
-    if active then drawLines() end
-end
-
-local function setTheme(purple)
-    themeColor = purple and Color3.fromRGB(128,0,255) or Color3.fromRGB(255,255,255)
-    for _, star in ipairs(stars) do star.BackgroundColor3 = themeColor end
-    drawLines()
-end
-
--- Toggles for constellation and theme
-addToggle("Visuals", visSec, "Constellation Effect", "Constellation", function(val)
-    setConstellationActive(val)
-end, true)
-addToggle("Visuals", visSec, "Purple Cosmic Theme", "PurpleTheme", function(val)
-    setTheme(val)
-    -- Also update UI accent for active tab
-    for _, tab in pairs(tabs) do
-        if tab.btn.BackgroundColor3 == Color3.fromRGB(128,0,255) then
-            tab.btn.BackgroundColor3 = val and Color3.fromRGB(128,0,255) or Color3.fromRGB(30,30,50)
-        end
+    if targetPart then
+        local targetCF = CFrame.lookAt(camCF.Position, targetPart.Position)
+        Camera.CFrame = camCF:Lerp(targetCF, aimbotSmoothness)
     end
-end, false)
+end)
 
--- ESP
-local espEnabled = false
-local espBoxes = {}
-local function createESP(player)
-    if not player.Character then return end
-    local box = Instance.new("BoxHandleAdornment")
-    box.Size = Vector3.new(4, 6, 4)
-    box.Color3 = Color3.fromRGB(255,255,255)
-    box.Transparency = 0.5
-    box.ZIndex = 10
-    box.Adornee = player.Character
-    box.Parent = player.Character
-    table.insert(espBoxes, box)
-end
-local function refreshESP()
-    for _, box in ipairs(espBoxes) do box:Destroy() end
-    espBoxes = {}
-    if not espEnabled then return end
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            createESP(player)
+-- NOCLIP / FLY
+local noclipEnabled = false
+local flyEnabled = false
+local flySpeed = 50
+local flyConnection
+local noclipConnection
+
+local function updateNoclip()
+    local char = LocalPlayer.Character
+    if char then
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = not noclipEnabled end
         end
     end
 end
-Players.Pl
+
+local function startNoclipLoop()
+    if noclipConnection then noclipConnection:Disconnect() end
+    noclipConnection = RunService.Stepped:Connect(updateNoclip)
+end
+
+local function startFly()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChild("Humanoid")
+    if not hum then return end
+    hum.PlatformStand = true
+    if flyConnection then flyConnection:Disconnect() end
+    flyConnection = RunService.RenderStepped:Connect(function()
+        if not flyEnabled then return end
+        local move = Vector3.new()
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + Camera.CFrame.LookVector end
+        if UserInput
